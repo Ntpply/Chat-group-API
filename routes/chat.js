@@ -124,5 +124,21 @@ router.get('/health', (req, res) => {
   });
 });
 
+router.get('/images/:chatRoomId', async (req, res) => {
+  try {
+    const { chatRoomId } = req.params;
+    const images = await Message.find({
+      chatRoomId,
+      type: 'image'
+    }).sort({ timestamp: -1 });
+
+    res.json(images);
+  } catch (error) {
+    console.error('Error fetching images:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
 
 module.exports = router;
