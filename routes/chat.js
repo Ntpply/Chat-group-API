@@ -63,7 +63,7 @@ router.get('/messages/:roomId', async (req, res) => {
     const messages = await Message.find({ chatRoomId: roomId })
       .populate('senderId', 'username')
       .sort({ timestamp: 1 })
-      .limit(100); // Limit to last 100 messages
+      .limit(100); 
 
     res.json(messages);
   } catch (error) {
@@ -136,6 +136,81 @@ router.get('/images/:chatRoomId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching images:', error);
     res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+router.get('/members/:roomId', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+
+    const room = await ChatRoom.findById(roomId).populate('members', 'username email');
+    if (!room) {
+      return res.status(404).json({ error: 'ไม่พบห้องแชท' });
+    }
+
+    res.json({ members: room.members });
+  } catch (error) {
+    console.error('❌ Error fetching members:', error);
+    res.status(500).json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลสมาชิก' });
+  }
+});
+
+router.post('/updateMember/:roomId', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const { roomId } = req.params;
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    }
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'ไม่พบห้องแชท' });
+    }
+    if (room.members.includes(user._id)) {
+      return res.status(400).json({ error: 'ผู้ใช้นี้อยู่ในห้องแล้ว' });
+    }
+
+    room.members.push(user._id);
+    await room.save();
+
+    res.status(200).json({ message: 'เพิ่มสมาชิกเรียบร้อยแล้ว', room });
+  } catch (error) {
+    console.error('❌ Error adding member:', error);
+    res.status(500).json({ error: 'ไม่สามารถเพิ่มสมาชิกได้' });
+  }
+});
+
+
+router.post('/removeMember/:roomId', async (req, res) => {
+  try {
+    const { username } = req.body;
+    const { roomId } = req.params;
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    }
+
+    const room = await ChatRoom.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ error: 'ไม่พบห้องแชท' });
+    }
+
+    if (!room.members.includes(user._id)) {
+      return res.status(400).json({ error: 'ผู้ใช้นี้ไม่ได้อยู่ในห้อง' });
+    }
+
+    room.members = room.members.filter(
+      (memberId) => memberId.toString() !== user._id.toString()
+    );
+
+    await room.save();
+
+    res.status(200).json({ message: 'ลบสมาชิกเรียบร้อยแล้ว', room });
+  } catch (error) {
+    console.error('❌ Error removing member:', error);
+    res.status(500).json({ error: 'ไม่สามารถลบสมาชิกได้' });
   }
 });
 
